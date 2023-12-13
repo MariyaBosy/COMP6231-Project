@@ -26,27 +26,46 @@ class Server:
             client_thread = threading.Thread(target=self.handle_client, args=(client_socket,))
             client_thread.start()
 
-    def data_preparation(self):
-        # Load the dataset
-        df = load_data("./files/airbnb_ratings_new.csv")
-
-        # Data preparation steps
-        df = clean_data(df)
-        df = transform_data(df)
-        df = feature_engineering(df)
-        df = scale_data(df)
-
-        # Save the prepared data to a new file
-        save_data(df, "airbnb_ratings_new_2.csv")
-
-        response = "Data preparation completed successfully!"
-        return response
-    
-    def preprocessing_data(self):
+    def data_preparation(self, file_paths):
         try:
-            # Update the path to the CSV file inside the Docker container
-            container_input_path = "/app/airbnb_ratings_new_2.csv"
-            subprocess.run(["docker", "run", "--rm", "-v", f"{os.getcwd()}:/app", "data-preprocessors-image", "python", "data_preparation.py"], check=True)
+            response = None  # Initialize response variable
+
+            for file_path in file_paths:
+                # Load the dataset
+                df = load_data(file_path)
+
+                if df is not None:
+                    # Data preparation steps
+                    try:
+                        df = clean_data(df)
+                        df = transform_data(df)
+                        df = feature_engineering(df)
+                        df = scale_data(df)
+
+                        # Save the prepared data to a new file
+                        output_file = os.path.splitext(file_path)[0] + "_prepared.csv"
+                        save_data(df, output_file)
+
+                        print(f"Data preparation completed for {file_path}. Prepared data saved to {output_file}")
+                    except Exception as e:
+                        response = f"Error during data preparation steps: {e}"
+                else:
+                    response = f"Data preparation skipped for {file_path} due to loading errors."
+
+            if response is None:
+                response = "Data preparation completed successfully!"
+        except Exception as e:
+            response = f"Error during data preparation: {e}"
+
+        return response
+
+    def preprocessing_data(self, file_paths):
+        try:
+            for file_path in file_paths:
+                # Update the path to the CSV file inside the Docker container
+                container_input_path = f"/app/{file_path}"
+                subprocess.run(["docker", "run", "--rm", "-v", f"{os.getcwd()}:/app", "data-preprocessors-image", "python", "data_preparation.py", container_input_path], check=True)
+
             response = "Data preprocessing completed successfully!"
         except subprocess.CalledProcessError as e:
             response = f"Error during data preprocessing: {e}"
@@ -82,9 +101,13 @@ class Server:
         command = client_socket.recv(1024).decode()
 
         if command == "data_preparation":
-            response = self.data_preparation()
+            # Update the file paths as needed
+            file_paths = ["./files/airbnb_ratings_new.csv", "./files/airbnb_sample.csv",  "./files/LA_Listings.csv", "./files/NY_Listings.csv", "./files/airbnb-reviews.csv"]
+            response = self.data_preparation(file_paths)
         elif command == "preprocessing_data":
-            response = self.preprocessing_data()
+            # Receive additional arguments (file_paths)
+            file_paths = client_socket.recv(1024).decode().split(',')
+            response = self.preprocessing_data(file_paths)        
         elif command == "containerize_elasticsearch":
             self.containerize_elasticsearch()
             response = "Elasticsearch containerized successfully!"
