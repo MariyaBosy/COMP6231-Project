@@ -16,11 +16,18 @@ class Client:
         finally:
             c_socket.close()
     
-    # def preprocess_data(self):
+    def data_preparation(self):
+        """
+        Send the "data_preparation" command to the server.
+        """
+        self.send_command("data_preparation")
+
+    # def preprocessing_data(self):
     #     """
-    #     Send the "preprocess_data" command to the server.
+    #     Send the "preprocessing_data" command to the server.
     #     """
-    #     self.send_command("preprocess_data")
+    #     self.send_command("preprocessing_data")
+
 
 def run_client():
     HOST = "127.0.0.1"
@@ -44,7 +51,12 @@ def run_client():
     client.send_command("undeploy_kubernetes")
 
     # Command to preprocess data
-    # client.preprocess_data()
+    client.data_preparation()
+
+    # Command to preprocess data
+    # client.preprocessing_data()
+
+    client.send_command("preprocessing_data")
 
     # Command to post-process data on the server
     # client.send_command("post_process_data")

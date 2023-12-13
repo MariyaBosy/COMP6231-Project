@@ -4,13 +4,14 @@ import os
 import subprocess
 import matplotlib.pyplot as plt
 import pandas as pd
+from data_preparation import load_data, clean_data, transform_data, feature_engineering, scale_data, save_data
 
 class Server:
     def __init__(self, host, port):
         self.host = host
         self.port = port
         self.s_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.airbnb_dataset_path = "C:/Users/Reema Reny/Documents/GitHub/DSD/files/airbnb_sample.csv"  # Update this path to your Airbnb dataset
+        self.airbnb_dataset_path = "C:/Users/Reema Reny/Documents/GitHub/DSD/files/airbnb_ratings_new.csv"  # Update this path to your Airbnb dataset
 
     def start(self):
         self.s_socket.bind((self.host, self.port))
@@ -25,16 +26,32 @@ class Server:
             client_thread = threading.Thread(target=self.handle_client, args=(client_socket,))
             client_thread.start()
 
-    # def preprocess_data(self):
-    #     try:
-    #         # Update the path to the CSV file inside the Docker container
-    #         container_input_path = "./files/airbnb_sample.csv"  # Assuming your input file is named airbnb_sample.csv
-    #         subprocess.run(["docker", "run", "--rm", "data-preprocessors-image", container_input_path], check=True)
-    #         response = "Data preprocessing completed successfully!"
-    #     except subprocess.CalledProcessError as e:
-    #         response = f"Error during data preprocessing: {e}"
+    def data_preparation(self):
+        # Load the dataset
+        df = load_data("./files/airbnb_ratings_new.csv")
 
-    #     return response
+        # Data preparation steps
+        df = clean_data(df)
+        df = transform_data(df)
+        df = feature_engineering(df)
+        df = scale_data(df)
+
+        # Save the prepared data to a new file
+        save_data(df, "airbnb_ratings_new_2.csv")
+
+        response = "Data preparation completed successfully!"
+        return response
+    
+    def preprocessing_data(self):
+        try:
+            # Update the path to the CSV file inside the Docker container
+            container_input_path = "/app/airbnb_ratings_new_2.csv"
+            subprocess.run(["docker", "run", "--rm", "-v", f"{os.getcwd()}:/app", "data-preprocessors-image", "python", "data_preparation.py"], check=True)
+            response = "Data preprocessing completed successfully!"
+        except subprocess.CalledProcessError as e:
+            response = f"Error during data preprocessing: {e}"
+
+        return response
 
 
     # def post_process_data(self):
@@ -64,8 +81,10 @@ class Server:
         # Receive the command from the client
         command = client_socket.recv(1024).decode()
 
-        if command == "preprocess_data":
-            response = self.preprocess_data()
+        if command == "data_preparation":
+            response = self.data_preparation()
+        elif command == "preprocessing_data":
+            response = self.preprocessing_data()
         elif command == "containerize_elasticsearch":
             self.containerize_elasticsearch()
             response = "Elasticsearch containerized successfully!"
