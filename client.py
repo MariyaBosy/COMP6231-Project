@@ -32,6 +32,12 @@ class Client:
         """
         self.send_command("data_preparation")
 
+    def data_prep(self):
+        """
+        Send the "data_preparation" command to the server.
+        """
+        self.send_command("data_prep")
+
     # def preprocessing_data(self):
     #     """
     #     Send the "preprocessing_data" command to the server.
@@ -63,9 +69,11 @@ def run_client():
     # Command to preprocess data
     client.data_preparation()
 
+    client.data_prep()
+
     # Command to preprocess data
     # client.preprocessing_data()
-    file_paths = ["./files/airbnb_ratings_new.csv", "./files/airbnb_sample.csv",  "./files/LA_Listings.csv", "./files/NY_Listings.csv", "./files/airbnb-reviews.csv"]
+    file_paths = ["./files/airbnb_ratings_new.csv", "./files/airbnb_sample.csv",  "./files/LA_Listings.csv", "./files/NY_Listings.csv"]
     client.send_command("preprocessing_data", file_paths)
 
     # Command to post-process data on the server

@@ -1,5 +1,3 @@
-# data_preparation.py
-
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
 import os
@@ -15,7 +13,11 @@ def load_data(file_path):
         }
 
         # Read the CSV file
-        df = pd.read_csv(file_path, encoding='latin1', dtype=dtype_options, low_memory=False)
+        if file_path == "./files/airbnb-reviews.csv":
+            df = pd.read_csv(file_path, encoding='latin1', low_memory=False)
+        else:
+            df = pd.read_csv(file_path, encoding='latin1', dtype=dtype_options, low_memory=False)
+
         return df
 
     except pd.errors.ParserError as e:
@@ -27,25 +29,30 @@ def load_data(file_path):
         with open(file_path, 'r', encoding='latin1') as file:
             for line_number, line in enumerate(file, start=1):
                 # Attempt to use multiple delimiters
+                df = None
+
                 for delimiter in [',', ';']:
                     try:
                         if len(line.split(delimiter)) == len(df.columns):
                             lines.append(line)
+                            break  # Break the loop if delimiter is found
                     except (NameError, UnboundLocalError):
-                        # If df is not defined, initialize it as None
-                        df = None
                         print(f"NameError or UnboundLocalError occurred at line {line_number}: {line}")
 
         if df is not None and len(lines) > 0:
             # Create a DataFrame from the filtered lines using io.StringIO
             try:
-                df = pd.read_csv(StringIO('\n'.join(lines)), dtype=dtype_options, low_memory=False)
+                if file_path == "./files/airbnb-reviews.csv":
+                    df = pd.read_csv(StringIO('\n'.join(lines)), low_memory=False)
+                else:
+                    df = pd.read_csv(StringIO('\n'.join(lines)), dtype=dtype_options, low_memory=False)
                 return df
             except Exception as e:
                 print(f"Error creating DataFrame from filtered lines: {e}")
                 return None
         else:
             return None
+
 
 
 def clean_data(df):
@@ -59,8 +66,8 @@ def clean_data(df):
     return df
 
 def transform_data(df):
-    if df is not None:
-        # Convert percentage columns to numeric
+    if df is not None and 'Host Response Rate' in df.columns:
+        # Replace non-numeric values with NaN in 'Host Response Rate' column
         df['Host Response Rate'] = pd.to_numeric(df['Host Response Rate'].str.rstrip('%'), errors='coerce')
 
         # Extract year from 'Calendar last scraped'
@@ -69,21 +76,26 @@ def transform_data(df):
 
     return df
 
+
 def feature_engineering(df):
     if df is not None:
         # Convert column names to lowercase
         df.columns = df.columns.str.lower()
 
-        # One-hot encode 'room type' column
-        df = pd.get_dummies(df, columns=['room type'])
+        # Check if 'room type' column exists before one-hot encoding
+        if 'room type' in df.columns:
+            # One-hot encode 'room type' column
+            df = pd.get_dummies(df, columns=['room type'])
 
     return df
 
 def scale_data(df):
     if df is not None:
-        # Scale numerical features
-        scaler = StandardScaler()
-        df[['latitude', 'longitude']] = scaler.fit_transform(df[['latitude', 'longitude']])
+        # Check if 'latitude' and 'longitude' columns exist
+        if all(col in df.columns for col in ['latitude', 'longitude']):
+            # Scale numerical features
+            scaler = StandardScaler()
+            df[['latitude', 'longitude']] = scaler.fit_transform(df[['latitude', 'longitude']])
 
     return df
 
@@ -111,6 +123,7 @@ def process_data_files(file_paths):
         except Exception as e:
             print(f"Error during data preprocessing for {file_path}: {e}")
 
+
 if __name__ == "__main__":
-    file_paths = ["./files/airbnb_ratings_new.csv", "./files/airbnb_sample.csv",  "./files/LA_Listings.csv", "./files/NY_Listings.csv","./files/airbnb-reviews.csv"]
+    file_paths = ["./files/airbnb_ratings_new.csv", "./files/airbnb_sample.csv",  "./files/LA_Listings.csv", "./files/NY_Listings.csv"]
     process_data_files(file_paths)

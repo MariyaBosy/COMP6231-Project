@@ -59,6 +59,23 @@ class Server:
 
         return response
 
+    def data_prep(self):
+        # Load the dataset
+        df = load_data("./files/airbnb-reviews.csv")
+
+    #     return response
+        # Data preparation steps
+        df = clean_data(df)
+        df = transform_data(df)
+        df = feature_engineering(df)
+        df = scale_data(df)
+
+        # Save the prepared data to a new file
+        save_data(df, "./files/airbnb-reviews_prepared.csv")
+
+        response = "Data preparation for 1GB file completed successfully!"
+        return response
+    
     def preprocessing_data(self, file_paths):
         try:
             for file_path in file_paths:
@@ -102,12 +119,19 @@ class Server:
 
         if command == "data_preparation":
             # Update the file paths as needed
-            file_paths = ["./files/airbnb_ratings_new.csv", "./files/airbnb_sample.csv",  "./files/LA_Listings.csv", "./files/NY_Listings.csv", "./files/airbnb-reviews.csv"]
+            file_paths = ["./files/airbnb_ratings_new.csv", "./files/airbnb_sample.csv",  "./files/LA_Listings.csv", "./files/NY_Listings.csv"]
             response = self.data_preparation(file_paths)
+        elif command == "data_prep":
+            response = self.data_prep()
         elif command == "preprocessing_data":
             # Receive additional arguments (file_paths)
             file_paths = client_socket.recv(1024).decode().split(',')
-            response = self.preprocessing_data(file_paths)        
+            response = self.preprocessing_data(file_paths)
+        # Add a case for "preprocessing_data" here
+        elif command == "preprocessing_data":
+            # Receive additional arguments (file_paths)
+            file_paths = client_socket.recv(1024).decode().split(',')
+            response = self.preprocessing_data(file_paths)
         elif command == "containerize_elasticsearch":
             self.containerize_elasticsearch()
             response = "Elasticsearch containerized successfully!"
@@ -128,6 +152,7 @@ class Server:
 
         client_socket.send(response.encode())
         client_socket.close()
+
 
     def containerize_elasticsearch(self):
         # Assume Elasticsearch is installed and running locally
