@@ -38,12 +38,6 @@ class Client:
         """
         self.send_command("data_prep")
 
-    # def preprocessing_data(self):
-    #     """
-    #     Send the "preprocessing_data" command to the server.
-    #     """
-    #     self.send_command("preprocessing_data")
-
 
 def run_client():
     HOST = "127.0.0.1"

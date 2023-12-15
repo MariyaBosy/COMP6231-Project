@@ -1,36 +1,66 @@
-import socket
-import threading
+import socketserver
 import os
 import subprocess
-import time
-import pandas as pd
-import pika
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from data_preparation import load_data, clean_data, transform_data, feature_engineering, scale_data, save_data
+
+class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
+    def handle(self):
+        command = self.request.recv(1024).decode()
+        if command == "data_preparation":
+            file_paths = ["./files/airbnb_ratings_new.csv", "./files/airbnb_sample.csv", "./files/LA_Listings.csv", "./files/NY_Listings.csv"]
+            response = self.server.data_preparation(file_paths)
+        elif command == "data_prep":
+            response = self.server.data_prep()
+        elif command == "preprocessing_data":
+            file_paths = self.request.recv(1024).decode().split(',')
+            response = self.server.preprocessing_data(file_paths)
+        elif command == "containerize_elasticsearch":
+            self.server.containerize_elasticsearch()
+            response = "Elasticsearch containerized successfully!"
+        elif command == "run_docker_container":
+            self.server.run_docker_container()
+            response = "Docker container started successfully!"
+        elif command == "stop_docker_container":
+            self.server.stop_docker_container()
+            response = "Docker container stopped successfully!"
+        elif command == "deploy_kubernetes":
+            self.server.deploy_kubernetes()
+            response = "Kubernetes deployment created successfully!"
+        elif command == "undeploy_kubernetes":
+            self.server.undeploy_kubernetes()
+            response = "Kubernetes deployment deleted successfully!"
+        else:
+            response = "Invalid command"
+
+        self.request.sendall(response.encode())
+
+class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
+    pass
 
 class Server:
     def __init__(self, host, port):
         self.host = host
         self.port = port
-        self.s_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.airbnb_dataset_path = "C:/Users/vijay/Downloads/Meera/DSD/Project/COMP6231-Project/files/airbnb_ratings_new.csv"  # Update this path to your Airbnb dataset
         self.executor = ThreadPoolExecutor(max_workers=10)
 
     def start(self):
-        self.s_socket.bind((self.host, self.port))
-        self.s_socket.listen()
+        server = ThreadedTCPServer((self.host, self.port), ThreadedTCPRequestHandler)
+        server.data_preparation = self.data_preparation
+        server.data_prep = self.data_prep
+        server.preprocessing_data = self.preprocessing_data
+        server.containerize_elasticsearch = self.containerize_elasticsearch
+        server.run_docker_container = self.run_docker_container
+        server.stop_docker_container = self.stop_docker_container
+        server.deploy_kubernetes = self.deploy_kubernetes
+        server.undeploy_kubernetes = self.undeploy_kubernetes
 
         print(f"Server listening on {self.host}:{self.port}")
-        while True:
-            client_socket, client_address = self.s_socket.accept()
-            print(f"Accepted connection from {client_address}")
-            self.executor.submit(self.handle_client, client_socket)
 
-            client_thread = threading.Thread(target=self.handle_client, args=(client_socket,))
-            client_thread.start()
-
-
+        with server:
+            server_thread = self.executor.submit(server.serve_forever)
+            server_thread.result()
 
     def data_preparation(self, file_paths):
         try:
@@ -133,11 +163,6 @@ class Server:
             # Receive additional arguments (file_paths)
             file_paths = client_socket.recv(1024).decode().split(',')
             response = self.preprocessing_data(file_paths)
-        # Add a case for "preprocessing_data" here
-        elif command == "preprocessing_data":
-            # Receive additional arguments (file_paths)
-            file_paths = client_socket.recv(1024).decode().split(',')
-            response = self.preprocessing_data(file_paths)
         elif command == "containerize_elasticsearch":
             self.containerize_elasticsearch()
             response = "Elasticsearch containerized successfully!"
@@ -196,8 +221,6 @@ class Server:
 def run_server():
     HOST = "127.0.0.1"
     PORT = 65432
-    #QUEUE_NAME = "task_queue"
-
     server = Server(HOST, PORT)
     server.start()
 
