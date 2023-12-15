@@ -7,24 +7,30 @@ class Client:
 
     def send_command(self, command, *args):
         c_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        c_socket.connect((self.host, self.port))
-
         try:
+            print(f"Connecting to {self.host}:{self.port}")
+            c_socket.connect((self.host, self.port))
+
             # Send the command
+            print(f"Sending command...{command}")  # Add this line
             c_socket.send(command.encode())
 
             # Send additional arguments
             for arg in args:
-                # Convert list to a string and then send
                 arg_str = ','.join(arg)
                 c_socket.send(arg_str.encode())
+
+            # c_socket.settimeout(5)  # Set a timeout for receiving responses (e.g., 10 seconds)
 
             # Receive and print the response
             response = c_socket.recv(1024).decode()
             print(response)
+        except ConnectionRefusedError:
+            print("Connection to the server was refused.")
+        # except socket.timeout:
+        #     print("Socket timed out. No response received.")
         finally:
             c_socket.close()
-
     
     def data_preparation(self):
         """
@@ -46,35 +52,41 @@ class Client:
 
 
 def run_client():
-    HOST = "127.0.0.1"
-    PORT = 65432
+    # Update the host and port for each server
+    host1 = "127.0.0.1"
+    port1 = 5001
 
-    client = Client(HOST, PORT)
+    host2 = "127.0.0.1"
+    port2 = 5002
 
-    # Command to containerize Elasticsearch
-    client.send_command("containerize_elasticsearch")
+    host3 = "127.0.0.1"
+    port3 = 5003
 
-    # Command to run a Docker container
-    client.send_command("run_docker_container")
 
-    # Command to stop a Docker container
-    client.send_command("stop_docker_container")
+    client1 = Client(host=host1, port=port1)
+    client2 = Client(host=host2, port=port2)
+    client3 = Client(host=host3, port=port3)
 
-    # Command to deploy a Kubernetes deployment
-    client.send_command("deploy_kubernetes")
+    # Commands for each server
+    client1.send_command("containerize_elasticsearch")
+    client2.send_command("run_docker_container")
+    client3.send_command("deploy_kubernetes")
 
-    # Command to undeploy a Kubernetes deployment
-    client.send_command("undeploy_kubernetes")
+    # # Command to stop a Docker container
+    client2.send_command("stop_docker_container")
+
+    # # Command to undeploy a Kubernetes deployment
+    client3.send_command("undeploy_kubernetes")
 
     # Command to preprocess data
-    client.data_preparation()
+    client1.send_command("data_preparation")
 
-    client.data_prep()
+    client1.data_prep()
 
     # Command to preprocess data
     # client.preprocessing_data()
     file_paths = ["./files/airbnb_ratings_new.csv", "./files/airbnb_sample.csv",  "./files/LA_Listings.csv", "./files/NY_Listings.csv"]
-    client.send_command("preprocessing_data", file_paths)
+    client1.send_command("preprocessing_data")
 
     # Command to post-process data on the server
     # client.send_command("post_process_data")
