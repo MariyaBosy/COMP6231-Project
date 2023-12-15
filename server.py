@@ -2,8 +2,11 @@ import socket
 import threading
 import os
 import subprocess
-import matplotlib.pyplot as plt
+import time
 import pandas as pd
+import pika
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from data_preparation import load_data, clean_data, transform_data, feature_engineering, scale_data, save_data
 
 class Server:
@@ -11,20 +14,23 @@ class Server:
         self.host = host
         self.port = port
         self.s_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.airbnb_dataset_path = "C:/Users/Reema Reny/Documents/GitHub/DSD/files/airbnb_ratings_new.csv"  # Update this path to your Airbnb dataset
+        self.airbnb_dataset_path = "C:/Users/vijay/Downloads/Meera/DSD/Project/COMP6231-Project/files/airbnb_ratings_new.csv"  # Update this path to your Airbnb dataset
+        self.executor = ThreadPoolExecutor(max_workers=10)
 
     def start(self):
         self.s_socket.bind((self.host, self.port))
         self.s_socket.listen()
 
         print(f"Server listening on {self.host}:{self.port}")
-
         while True:
             client_socket, client_address = self.s_socket.accept()
             print(f"Accepted connection from {client_address}")
+            self.executor.submit(self.handle_client, client_socket)
 
             client_thread = threading.Thread(target=self.handle_client, args=(client_socket,))
             client_thread.start()
+
+
 
     def data_preparation(self, file_paths):
         try:
@@ -190,6 +196,7 @@ class Server:
 def run_server():
     HOST = "127.0.0.1"
     PORT = 65432
+    #QUEUE_NAME = "task_queue"
 
     server = Server(HOST, PORT)
     server.start()
