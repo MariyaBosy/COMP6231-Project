@@ -1,6 +1,7 @@
 import concurrent.futures
 import socket
 import time
+import json
 
 class Client:
     def __init__(self, host, port):
@@ -21,34 +22,41 @@ class Client:
                 c_socket.send(arg_str.encode())
 
             response = c_socket.recv(1024).decode()
-            print(response)
+            if response.startswith('{') and response.endswith('}'):
+                response_json = json.loads(response)
+                print(response_json)
+            else:
+                # Handle the case where the response is not a JSON string
+                print(response)        
         except ConnectionRefusedError:
             print("Connection to the server was refused.")
         finally:
             c_socket.close()
 
-    def search_hosts_by_rating(self, min_rating):
+ 
+    def setup_elasticsearch(self):
         """
-        Send the "search_hosts_by_rating" command to the server.
+        Send command to server to set up Elasticsearch index.
         """
-        self.send_command("search_hosts_by_rating", str(min_rating))
-    
-    # def data_preparation(self):
-    #     """
-    #     Send the "data_preparation" command to the server.
-    #     """
-    #     self.send_command("data_preparation")
+        self.send_command("setup_elasticsearch")
+
+    def get_index_settings(self, index_name):
+        command = f"get_index_settings|{index_name}"
+        self.send_command(command)
+
+   
+    def data_preparation(self):
+        """
+        Send the "data_preparation" command to the server.
+        """
+        self.send_command("data_preparation")
 
     def data_prep(self):
         """
         Send the "data_preparation" command to the server.
         """
         self.send_command("data_prep")
-
-
-    def top_neighborhoods_avg_ratings(self):
-        self.send_command("top_neighborhoods_avg_ratings")
-    
+  
 
 def run_client():
     host1 = "127.0.0.1"
@@ -68,6 +76,8 @@ def run_client():
         # Submit commands to the executor
         futures = [
             executor.submit(client1.send_command, "containerize_elasticsearch"),
+            executor.submit(client3.send_command, "setup_elasticsearch"),
+            executor.submit(client3.send_command, "my_test_index"),
             executor.submit(client2.send_command, "run_docker_container"),
             executor.submit(client3.send_command, "deploy_kubernetes"),
             executor.submit(client2.send_command, "stop_docker_container"),

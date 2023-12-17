@@ -12,6 +12,8 @@ from data_preparation import load_data, clean_data, transform_data, feature_engi
 from flask import Flask
 from load_balancer import LoadBalancer
 from waitress import serve
+import json
+from elasticsearch.exceptions import RequestError
 
 app = Flask(__name__)
 
@@ -164,10 +166,6 @@ class Server:
             print("-------------------------------")
             response = "Kubernetes deployment deleted successfully!"
             print("-------------------------------")
-        elif command == "search_hosts_by_rating":
-            min_rating = int(args[0]) if args else None
-            self.search_hosts_by_rating(min_rating)
-            response = f"Rating is {min_rating}"
         elif command == "question_1":
             response = self.question_1(la_listings, ny_listings)
         elif command == "question_2":
@@ -186,15 +184,58 @@ class Server:
         # Close the sockets
         client_socket.close()
 
+    
+    def setup_elasticsearch(self):
+        # Connect to the Elasticsearch cluster
+        es = Elasticsearch(['http://localhost:9200'], verify_certs=False, ssl_version='PROTOCOL_TLSv1')
+
+        try:
+            # Example operation: Create an index
+            index_name = 'my_test_index'
+            if not es.indices.exists(index=index_name):
+                es.indices.create(index=index_name, body={
+                    "settings": {
+                        "number_of_shards": 1,
+                        "number_of_replicas": 1
+                    }
+                })
+                return "Elasticsearch index setup completed."
+            else:
+                return f"Elasticsearch index '{index_name}' already exists."
+
+        except RequestError as e:
+            # Handle specific request errors, e.g., index already exists
+            return f"Error setting up Elasticsearch: {str(e)}"
+        except Exception as e:
+            # Handle other exceptions or log errors
+            return f"Error setting up Elasticsearch: {str(e)}"
+
+
+    def get_index_settings(self, index_name):
+        es = Elasticsearch(['http://localhost:9200'], verify_certs=False, ssl_version='PROTOCOL_TLSv1')  # Adjust the host if necessary
+        try:
+            settings = es.indices.get_settings(index=index_name)
+            print(settings)
+            #print(f'Type of settings: {type(settings)}')
+            relevant_info = {
+                'number_of_shards': settings['my_test_index']['settings']['index']['number_of_shards'],
+                'number_of_replicas': settings['my_test_index']['settings']['index']['number_of_replicas']
+            }
+
+            # Convert the relevant information to a JSON string
+            response_json = json.dumps(relevant_info)
+            return response_json
+        except Exception as e:
+            return str(e)
+   
+
 
     def data_preparation(self, file_paths):
-        print("Entering data_preparation method")
         try:
-
             response = None  # Initialize response variable
 
             for file_path in file_paths:
-                print(f"Processing file: {file_path}")
+                # Load the dataset
                 df = load_data(file_path)
 
                 if df is not None:
@@ -297,44 +338,6 @@ class Server:
 
         return "Kubernetes deployment deleted successfully!"
     
-    # Inside the Server class in server.py
-    def search_hosts_by_rating(self, min_rating):
-        try:
-            if min_rating is None:
-                raise ValueError("Missing rating value. Please provide a valid numerical rating.")
-            
-            min_rating = float(min_rating)  # Convert the argument to float
-
-            es = Elasticsearch(['http://localhost:9200'])
-            index_name = 'airbnb_data'
-
-            # Define a simple query
-            query = {
-                "query": {
-                    "range": {
-                        "review_scores_rating": {
-                            "gte": min_rating
-                        }
-                    }
-                }
-            }
-
-            # Execute the query
-            result = es.search(index=index_name, body=query)
-
-            # Process and print the result
-            output = []
-            for hit in result['hits']['hits']:
-                output.append(hit['_source'])
-
-            return str(output)
-
-        except ValueError as e:
-            return str(e)
-        except Exception as e:
-            return f"An error occurred: {e}"
-    
-    # Question 1
     '''
     Question: 1
     Find the average rating for each host in Los Angeles and New York, considering 
@@ -349,7 +352,6 @@ class Server:
         result.columns = ['host id', 'average_rating', 'num_listings']
         return str(result)
 
-    # Question 2
     '''
     Question: 2
     Identify the top 5 neighborhoods in Los Angeles and New York with the highest 
@@ -364,7 +366,6 @@ class Server:
         print("-------------------------------")
         return str(result)
 
-    # Question 3
     '''
     Question: 3
     Determine the correlation between the quantity of the Airbnb amenities (number of amenities) 
@@ -376,7 +377,6 @@ class Server:
         print("-------------------------------")
         return str(correlation)
 
-    # Question 4
     '''
     Question: 4
     Find hosts who have listings in both Los Angeles and New York. 
@@ -390,7 +390,6 @@ class Server:
         print("-------------------------------")
         return str(result)
 
-    # Question 5
     '''
     Question: 5
     Find the city which has the most AirBNB number of listing. 
