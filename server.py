@@ -30,6 +30,14 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
         if command == "data_preparation":
             file_paths = ["./files/airbnb_ratings_new.csv", "./files/airbnb_sample.csv", "./files/LA_Listings.csv", "./files/NY_Listings.csv"]
             response = self.server.data_preparation(file_paths)
+        elif command == "setup_elasticsearch":
+            response = self.setup_elasticsearch()
+        elif command == "get_index_settings":
+            if args:
+                index_name = args[0]
+                response = self.get_index_settings(index_name)
+            else:
+                response = "Error: No index name provided for get_index_settings"
         elif command == "data_prep":
             response = self.server.data_prep()
         elif command == "preprocessing_data":
@@ -136,6 +144,14 @@ class Server:
         if command == "data_preparation":
             file_paths = ["./files/airbnb_ratings_new.csv", "./files/airbnb_sample.csv",  "./files/LA_Listings.csv", "./files/NY_Listings.csv"]
             response = self.data_preparation(file_paths)
+        elif command == "setup_elasticsearch":
+            response = self.setup_elasticsearch()
+        elif command == "get_index_settings":
+            if args:
+                index_name = args[0]
+                response = self.get_index_settings(index_name)
+            else:
+                response = "Error: No index name provided for get_index_settings"
         elif command == "data_prep":
             response = self.data_prep()
         elif command == "preprocessing_data":
