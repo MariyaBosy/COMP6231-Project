@@ -10,7 +10,7 @@ class LoadBalancer:
     def register_server(self, host, port):
         with self.lock:
             self.servers.append((host, port))
-        print(f"Server registered: {host}:{port}")
+        # print(f"Server registered: {host}:{port}")
 
     def get_next_server(self, client_identifier):
         with self.lock:

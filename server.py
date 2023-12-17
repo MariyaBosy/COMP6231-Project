@@ -1,19 +1,24 @@
 import argparse
 import logging
 import socket
-import sys
 import threading
 import os
 import subprocess
-import time
-import matplotlib.pyplot as plt
+from elasticsearch import Elasticsearch
 import pandas as pd
 from data_preparation import load_data, clean_data, transform_data, feature_engineering, scale_data, save_data
-from flask import Flask, request, jsonify
+from flask import Flask
 from load_balancer import LoadBalancer
 from waitress import serve
 
 app = Flask(__name__)
+
+# Load datasets
+ratings = pd.read_csv("./files/airbnb_ratings_new_prepared.csv")
+reviews = pd.read_csv("./files/airbnb-reviews.csv")
+sample_data = pd.read_csv("./files/airbnb_sample_prepared.csv")
+la_listings = pd.read_csv("./files/LA_Listings_prepared.csv")
+ny_listings = pd.read_csv("./files/NY_Listings_prepared.csv")
 
 class Server:
     load_balancer = None
@@ -22,7 +27,6 @@ class Server:
         self.host = host
         self.port = port
 
-        # Set up logging
         logging.basicConfig(level=logging.DEBUG)
         self.logger = logging.getLogger(__name__)
 
@@ -42,94 +46,110 @@ class Server:
         self.load_balancer.register_server(self.host, self.port)
 
     def start_server(self):
-        # Register the server with the load balancer
         self.register_with_load_balancer()
 
-        # Run the Flask app using Gunicorn
         self.logger.info(f"Starting Flask server on {self.host}:{self.port}")
+        print("-------------------------------")
 
-        # Start the main loop for accepting client connections
         server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server_socket.bind((self.host, self.port))
         server_socket.listen(5)
 
         while True:
             client_socket, addr = server_socket.accept()
+            print("-------------------------------")
             self.logger.info(f"Accepted connection from {addr}")
+
             
-            # Generate a unique identifier for the client (e.g., based on address)
             client_identifier = addr
 
-            # Pass the client identifier to the client_handler thread
             client_handler = threading.Thread(target=self.handle_client, args=(client_socket, client_identifier))
             client_handler.start()
 
     def start_flask(self):
-        # Run the Flask app using Gunicorn
-        print(f"Starting Flask server on {self.host}:{self.port}")
+        # print(f"Starting Flask server on {self.host}:{self.port}")
         serve(app, host=self.host, port=int(self.port))
 
-    # Modify the handle_client method in your Server class
+    
     def handle_client(self, client_socket, client_identifier):
         # Receive the command from the client
         command = client_socket.recv(1024).decode()
 
-        response = None  # Initialize response variable
+        # Split the command and arguments
+        command, *args = command.split(',')
+
+        response = None  
         
         # Use the client identifier to determine the target host consistently
         target_host = self.load_balancer.get_next_server(client_identifier)
 
         self.logger.info(f"Received command: {command}")
-
-        # Forward the client request to the selected server
-        # forward_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        # forward_socket.connect((target_host[0], target_host[1]))
-        # forward_socket.send(command.encode())
+        print("-------------------------------")
 
         if command == "data_preparation":
-            # Update the file paths as needed
             file_paths = ["./files/airbnb_ratings_new.csv", "./files/airbnb_sample.csv",  "./files/LA_Listings.csv", "./files/NY_Listings.csv"]
             response = self.data_preparation(file_paths)
         elif command == "data_prep":
             response = self.data_prep()
         elif command == "preprocessing_data":
-            # Receive additional arguments (file_paths)
             file_paths = ["./files/airbnb_ratings_new.csv", "./files/airbnb_sample.csv",  "./files/LA_Listings.csv", "./files/NY_Listings.csv"]
             response = self.preprocessing_data(file_paths)
         elif command == "containerize_elasticsearch":
             self.containerize_elasticsearch()
+            print("-------------------------------")
             response = "Elasticsearch containerized successfully!"
+            print("-------------------------------")
         elif command == "run_docker_container":
             self.run_docker_container()
+            print("-------------------------------")
             response = "Docker container started successfully!"
+            print("-------------------------------")
         elif command == "stop_docker_container":
             self.stop_docker_container()
+            print("-------------------------------")
             response = "Docker container stopped successfully!"
+            print("-------------------------------")
         elif command == "deploy_kubernetes":
             self.deploy_kubernetes()
+            print("-------------------------------")
             response = "Kubernetes deployment created successfully!"
+            print("-------------------------------")
         elif command == "undeploy_kubernetes":
             self.undeploy_kubernetes()
+            print("-------------------------------")
             response = "Kubernetes deployment deleted successfully!"
+            print("-------------------------------")
+        elif command == "search_hosts_by_rating":
+            min_rating = int(args[0]) if args else None
+            self.search_hosts_by_rating(min_rating)
+            response = f"Rating is {min_rating}"
+        elif command == "question_1":
+            response = self.question_1(la_listings, ny_listings)
+        elif command == "question_2":
+            response = self.question_2(la_listings, ny_listings)
+        elif command == "question_3":
+            response = self.question_3(la_listings)
+        elif command == "question_4":
+            response = self.question_4(la_listings, ny_listings)
+        elif command == "question_5":
+            response = self.question_5(ratings)
         else:
             response = "Invalid command"
         
-        # Send the response back to the client
         client_socket.send(response.encode())
 
         # Close the sockets
-        # forward_socket.close()
         client_socket.close()
 
 
     def data_preparation(self, file_paths):
         print("Entering data_preparation method")
         try:
+
             response = None  # Initialize response variable
 
             for file_path in file_paths:
                 print(f"Processing file: {file_path}")
-                # Load the dataset
                 df = load_data(file_path)
 
                 if df is not None:
@@ -143,8 +163,9 @@ class Server:
                         # Save the prepared data to a new file
                         output_file = os.path.splitext(file_path)[0] + "_prepared.csv"
                         save_data(df, output_file)
-
+                        print("-------------------------------")
                         print(f"Data preparation completed for {file_path}. Prepared data saved to {output_file}")
+                        print("-------------------------------")
                     except Exception as e:
                         response = f"Error during data preparation steps: {e}"
                 else:
@@ -158,7 +179,6 @@ class Server:
         return response
 
     def data_prep(self):
-        # Load the dataset
         df = load_data("./files/airbnb-reviews.csv")
 
         # Data preparation steps
@@ -169,8 +189,9 @@ class Server:
 
         # Save the prepared data to a new file
         save_data(df, "./files/airbnb-reviews_prepared.csv")
-
+        print("-------------------------------")
         response = "Data preparation for 1GB file completed successfully!"
+        print("-------------------------------")
         return response
 
     def preprocessing_data(self, file_paths):
@@ -180,8 +201,9 @@ class Server:
                 # Update the path to the CSV file inside the Docker container
                 container_input_path = f"/app/{file_path}"
                 subprocess.run(["docker", "run", "--rm", "-v", f"{os.getcwd()}:/app", "data-preprocessors-image", "python", "data_preparation.py", container_input_path], check=True)
-
+            print("-------------------------------")
             response = "Data preprocessing completed successfully!"
+            print("-------------------------------")
         except subprocess.CalledProcessError as e:
             response = f"Error during data preprocessing: {e}"
 
@@ -229,6 +251,111 @@ class Server:
         subprocess.run(["kubectl", "delete", "deployment", "nginx-deployment"])
 
         return "Kubernetes deployment deleted successfully!"
+    
+    # Inside the Server class in server.py
+    def search_hosts_by_rating(self, min_rating):
+        try:
+            if min_rating is None:
+                raise ValueError("Missing rating value. Please provide a valid numerical rating.")
+            
+            min_rating = float(min_rating)  # Convert the argument to float
+
+            es = Elasticsearch(['http://localhost:9200'])
+            index_name = 'airbnb_data'
+
+            # Define a simple query
+            query = {
+                "query": {
+                    "range": {
+                        "review_scores_rating": {
+                            "gte": min_rating
+                        }
+                    }
+                }
+            }
+
+            # Execute the query
+            result = es.search(index=index_name, body=query)
+
+            # Process and print the result
+            output = []
+            for hit in result['hits']['hits']:
+                output.append(hit['_source'])
+
+            return str(output)
+
+        except ValueError as e:
+            return str(e)
+        except Exception as e:
+            return f"An error occurred: {e}"
+    
+    # Question 1
+    '''
+    Question: 1
+    Find the average rating for each host in Los Angeles and New York, considering 
+    only the listings with more than 10 reviews. Display the host ID, average rating, 
+    and the number of reviews for each host.
+    '''
+    def question_1(self, la_listings, ny_listings):
+        combined_listings = pd.concat([la_listings, ny_listings])
+        filtered_listings = combined_listings[combined_listings['number of reviews'] >= 90]
+        grouped_data = filtered_listings.groupby(['host id']).agg({'review scores rating': 'mean', 'listing id': 'count'}).reset_index()
+        result = grouped_data[grouped_data['review scores rating'] > 70]
+        result.columns = ['host id', 'average_rating', 'num_listings']
+        return str(result)
+
+    # Question 2
+    '''
+    Question: 2
+    Identify the top 5 neighborhoods in Los Angeles and New York with the highest 
+    average ratings. Include the neighborhood name, the average rating, and the 
+    total number of listings in each neighborhood.
+    '''
+    def question_2(self, la_listings, ny_listings):
+        combined_listings = pd.concat([la_listings, ny_listings])
+        grouped_data = combined_listings.groupby(['neighbourhood cleansed']).agg({'review scores rating': 'mean', 'listing id': 'count'}).reset_index()
+        result = grouped_data.sort_values(by=['review scores rating', 'listing id'], ascending=False).head(10)
+        result.columns = ['neighbourhood', 'average_rating', 'num_listings']
+        print("-------------------------------")
+        return str(result)
+
+    # Question 3
+    '''
+    Question: 3
+    Determine the correlation between the quantity of the Airbnb amenities (number of amenities) 
+    and the price. Consider only listings in Los Angeles.
+    '''
+    def question_3(self, la_listings):
+        la_listings['total_amenities'] = la_listings['amenities'].apply(lambda x: len(str(x).split(";")))
+        correlation = la_listings[['total_amenities', 'price']].corr()['price']['total_amenities']
+        print("-------------------------------")
+        return str(correlation)
+
+    # Question 4
+    '''
+    Question: 4
+    Find hosts who have listings in both Los Angeles and New York. 
+    Display the host ID and the number of listings they have in each city.
+    '''
+    def question_4(self, la_listings, ny_listings):
+        la_host_listings = la_listings[['host id']]
+        result = pd.merge(la_host_listings, ny_listings, on='host id')
+        result = result.groupby(['host id']).agg({'listing id': 'count'}).reset_index()
+        result.columns = ['host id', 'num_listings_LA_NY']
+        print("-------------------------------")
+        return str(result)
+
+    # Question 5
+    '''
+    Question: 5
+    Find the city which has the most AirBNB number of listing. 
+    Display the city and the total number of listing.
+    '''
+    def question_5(self, ratings):
+        result = ratings.groupby(['city']).agg({'listing id': 'count'}).reset_index()
+        result = result[result['listing id'] == result['listing id'].max()]
+        print("-------------------------------")
+        return str(result)
 
 
 def run_server(host, port, load_balancer):
