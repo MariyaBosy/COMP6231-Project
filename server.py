@@ -6,6 +6,8 @@ import os
 import subprocess
 from elasticsearch import Elasticsearch
 import pandas as pd
+import socketserver
+from concurrent.futures import ThreadPoolExecutor
 from data_preparation import load_data, clean_data, transform_data, feature_engineering, scale_data, save_data
 from flask import Flask
 from load_balancer import LoadBalancer
@@ -14,11 +16,45 @@ from waitress import serve
 app = Flask(__name__)
 
 # Load datasets
-ratings = pd.read_csv("./files/airbnb_ratings_new_prepared.csv")
-reviews = pd.read_csv("./files/airbnb-reviews.csv")
-sample_data = pd.read_csv("./files/airbnb_sample_prepared.csv")
-la_listings = pd.read_csv("./files/LA_Listings_prepared.csv")
-ny_listings = pd.read_csv("./files/NY_Listings_prepared.csv")
+# ratings = pd.read_csv("./files/airbnb_ratings_new_prepared.csv")
+# reviews = pd.read_csv("./files/airbnb-reviews.csv")
+# sample_data = pd.read_csv("./files/airbnb_sample_prepared.csv")
+# la_listings = pd.read_csv("./files/LA_Listings_prepared.csv")
+# ny_listings = pd.read_csv("./files/NY_Listings_prepared.csv")
+
+class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
+    def handle(self):
+        command = self.request.recv(1024).decode()
+        if command == "data_preparation":
+            file_paths = ["./files/airbnb_ratings_new.csv", "./files/airbnb_sample.csv", "./files/LA_Listings.csv", "./files/NY_Listings.csv"]
+            response = self.server.data_preparation(file_paths)
+        elif command == "data_prep":
+            response = self.server.data_prep()
+        elif command == "preprocessing_data":
+            file_paths = self.request.recv(1024).decode().split(',')
+            response = self.server.preprocessing_data(file_paths)
+        elif command == "containerize_elasticsearch":
+            self.server.containerize_elasticsearch()
+            response = "Elasticsearch containerized successfully!"
+        elif command == "run_docker_container":
+            self.server.run_docker_container()
+            response = "Docker container started successfully!"
+        elif command == "stop_docker_container":
+            self.server.stop_docker_container()
+            response = "Docker container stopped successfully!"
+        elif command == "deploy_kubernetes":
+            self.server.deploy_kubernetes()
+            response = "Kubernetes deployment created successfully!"
+        elif command == "undeploy_kubernetes":
+            self.server.undeploy_kubernetes()
+            response = "Kubernetes deployment deleted successfully!"
+        else:
+            response = "Invalid command"
+
+        self.request.sendall(response.encode())
+
+class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
+    pass
 
 class Server:
     load_balancer = None
@@ -29,18 +65,22 @@ class Server:
 
         logging.basicConfig(level=logging.DEBUG)
         self.logger = logging.getLogger(__name__)
+        self.executor = ThreadPoolExecutor(max_workers=10)
+
+    def start(self):
+        server = ThreadedTCPServer((self.host, self.port), ThreadedTCPRequestHandler)
+        server.data_preparation = self.data_preparation
+        server.data_prep = self.data_prep
+        server.preprocessing_data = self.preprocessing_data
+        server.containerize_elasticsearch = self.containerize_elasticsearch
+        server.run_docker_container = self.run_docker_container
+        server.stop_docker_container = self.stop_docker_container
+        server.deploy_kubernetes = self.deploy_kubernetes
+        server.undeploy_kubernetes = self.undeploy_kubernetes
 
     @classmethod
     def set_load_balancer(cls, load_balancer):
         cls.load_balancer = load_balancer
-
-    # def start_server(self):
-    #     # Register the server with the load balancer
-    #     self.register_with_load_balancer()
-
-    #     # Run the Flask app using Gunicorn
-    #     print(f"Starting Flask server on {self.host}:{self.port}")
-    #     serve(app, host=self.host, port=int(self.port))
 
     def register_with_load_balancer(self):
         self.load_balancer.register_server(self.host, self.port)
@@ -55,6 +95,10 @@ class Server:
         server_socket.bind((self.host, self.port))
         server_socket.listen(5)
 
+        # with server_socket:
+        #     server_thread = self.executor.submit(server_socket.serve_forever)
+        #     server_thread.result()
+
         while True:
             client_socket, addr = server_socket.accept()
             print("-------------------------------")
@@ -65,6 +109,7 @@ class Server:
 
             client_handler = threading.Thread(target=self.handle_client, args=(client_socket, client_identifier))
             client_handler.start()
+        
 
     def start_flask(self):
         # print(f"Starting Flask server on {self.host}:{self.port}")
