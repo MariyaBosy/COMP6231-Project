@@ -30,14 +30,14 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
         if command == "data_preparation":
             file_paths = ["./files/airbnb_ratings_new.csv", "./files/airbnb_sample.csv", "./files/LA_Listings.csv", "./files/NY_Listings.csv"]
             response = self.server.data_preparation(file_paths)
-        elif command == "setup_elasticsearch":
-            response = self.setup_elasticsearch()
-        elif command == "get_index_settings":
-            if args:
-                index_name = args[0]
-                response = self.get_index_settings(index_name)
-            else:
-                response = "Error: No index name provided for get_index_settings"
+        # elif command == "setup_elasticsearch":
+        #     response = self.setup_elasticsearch()
+        # elif command == "get_index_settings":
+        #     if args:
+        #         index_name = args[0]
+        #         response = self.get_index_settings(index_name)
+        #     else:
+        #         response = "Error: No index name provided for get_index_settings"
         elif command == "data_prep":
             response = self.server.data_prep()
         elif command == "preprocessing_data":
@@ -137,9 +137,16 @@ class Server:
         
         # Use the client identifier to determine the target host consistently
         target_host = self.load_balancer.get_next_server(client_identifier)
-
-        self.logger.info(f"Received command: {command}")
-        print("-------------------------------")
+        if self.port == 5001:
+            response = "Server Shut down"
+            client_socket.send(response.encode())
+    
+            # Close the sockets
+            # forward_socket.close()
+            client_socket.close()
+        else:
+            self.logger.info(f"Received command: {command}")
+            print("-------------------------------")
 
         if command == "data_preparation":
             file_paths = ["./files/airbnb_ratings_new.csv", "./files/airbnb_sample.csv",  "./files/LA_Listings.csv", "./files/NY_Listings.csv"]
@@ -446,7 +453,6 @@ if __name__ == "__main__":
 
     # Set the load balancer for all instances
     Server.set_load_balancer(load_balancer)
-
     if args.host and args.port:
         # Run a specific server specified by command-line arguments
         server_instance = Server(args.host, args.port)

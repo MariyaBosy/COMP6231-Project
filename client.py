@@ -3,10 +3,12 @@ import socket
 import time
 import json
 
+
 class Client:
-    def __init__(self, host, port):
+    def __init__(self, host, port, inc):
         self.host = host
         self.port = port
+        self.inc = []
 
     def send_command(self, command, *args):
         c_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -25,6 +27,8 @@ class Client:
             if response.startswith('{') and response.endswith('}'):
                 response_json = json.loads(response)
                 print(response_json)
+            elif response == "Server Shut down":
+                self.inc.append(command)
             else:
                 # Handle the case where the response is not a JSON string
                 print(response)        
@@ -68,9 +72,9 @@ def run_client():
     host3 = "127.0.0.1"
     port3 = 5003
 
-    client1 = Client(host=host1, port=port1)
-    client2 = Client(host=host2, port=port2)
-    client3 = Client(host=host3, port=port3)
+    client1 = Client(host=host1, port=port1, inc=[])
+    client2 = Client(host=host2, port=port2, inc=[])
+    client3 = Client(host=host3, port=port3, inc=[])
 
     with concurrent.futures.ThreadPoolExecutor() as executor:
         # Submit commands to the executor
@@ -95,6 +99,11 @@ def run_client():
 
         # Wait for all futures to complete
         concurrent.futures.wait(futures)
+    
+    if (len(client1.inc) != 0):
+        #print(client1.inc)
+        for cmd in client1.inc:
+            client2.send_command(cmd)
 
 if __name__ == "__main__":
     run_client()
