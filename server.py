@@ -16,11 +16,11 @@ from waitress import serve
 app = Flask(__name__)
 
 # Load datasets
-# ratings = pd.read_csv("./files/airbnb_ratings_new_prepared.csv")
-# reviews = pd.read_csv("./files/airbnb-reviews.csv")
-# sample_data = pd.read_csv("./files/airbnb_sample_prepared.csv")
-# la_listings = pd.read_csv("./files/LA_Listings_prepared.csv")
-# ny_listings = pd.read_csv("./files/NY_Listings_prepared.csv")
+ratings = pd.read_csv("./files/airbnb_ratings_new_prepared.csv")
+reviews = pd.read_csv("./files/airbnb-reviews.csv")
+sample_data = pd.read_csv("./files/airbnb_sample_prepared.csv")
+la_listings = pd.read_csv("./files/LA_Listings_prepared.csv")
+ny_listings = pd.read_csv("./files/NY_Listings_prepared.csv")
 
 class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
     def handle(self):
