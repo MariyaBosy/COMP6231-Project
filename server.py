@@ -111,7 +111,6 @@ class Server:
 
         while True:
             client_socket, addr = server_socket.accept()
-            print("-------------------------------")
             self.logger.info(f"Accepted connection from {addr}")
 
             
@@ -199,10 +198,11 @@ class Server:
             response = self.question_4(la_listings, ny_listings)
         elif command == "question_5":
             response = self.question_5(ratings)
-        else:
-            response = "Invalid command"
+
         
-        client_socket.send(response.encode())
+        if response is not None:
+            client_socket.send(response.encode())
+
 
         # Close the sockets
         client_socket.close()
@@ -238,7 +238,7 @@ class Server:
         es = Elasticsearch(['http://localhost:9200'], verify_certs=False, ssl_version='PROTOCOL_TLSv1')  # Adjust the host if necessary
         try:
             settings = es.indices.get_settings(index=index_name)
-            print(settings)
+            # print(settings)
             #print(f'Type of settings: {type(settings)}')
             relevant_info = {
                 'number_of_shards': settings['my_test_index']['settings']['index']['number_of_shards'],
@@ -247,6 +247,7 @@ class Server:
 
             # Convert the relevant information to a JSON string
             response_json = json.dumps(relevant_info)
+            print(response_json)
             return response_json
         except Exception as e:
             return str(e)

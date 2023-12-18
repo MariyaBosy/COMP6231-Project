@@ -5,7 +5,7 @@ import json
 
 
 class Client:
-    def __init__(self, host, port, inc):
+    def __init__(self, host, port):
         self.host = host
         self.port = port
         # self.inc = []
@@ -17,6 +17,7 @@ class Client:
             # print(f"Connecting to {self.host}:{self.port}")
 
             print(f"Sending command '{command}' in {self.host}:{self.port}")
+            print("----------------------------------")
             c_socket.send(command.encode())
 
             for arg in args:
@@ -79,15 +80,13 @@ def run_client():
     with concurrent.futures.ThreadPoolExecutor() as executor:
         # Submit commands to the executor
         futures = [
-            executor.submit(client1.send_command, "containerize_elasticsearch"),
-            executor.submit(client3.send_command, "setup_elasticsearch"),
-            executor.submit(client3.send_command, "my_test_index"),
+            # executor.submit(client3.send_command, "containerize_elasticsearch"),
             executor.submit(client2.send_command, "run_docker_container"),
             executor.submit(client3.send_command, "deploy_kubernetes"),
             executor.submit(client2.send_command, "stop_docker_container"),
             executor.submit(client3.send_command, "undeploy_kubernetes"),
             executor.submit(client1.send_command, "data_preparation"),
-            executor.submit(client1.send_command, "data_prep"),
+            executor.submit(client2.send_command, "data_prep"),
             executor.submit(client1.send_command, "search_hosts_by_rating"),
             executor.submit(client1.send_command, "preprocessing_data"),
             executor.submit(client1.send_command, "question_1"),
@@ -95,6 +94,8 @@ def run_client():
             executor.submit(client3.send_command, "question_3"),
             executor.submit(client2.send_command, "question_4"),
             executor.submit(client3.send_command, "question_5"),
+            executor.submit(client3.send_command, "setup_elasticsearch"),
+            executor.submit(client3.get_index_settings, "my_test_index"),
         ]
 
         # Wait for all futures to complete
