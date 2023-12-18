@@ -137,16 +137,16 @@ class Server:
         
         # Use the client identifier to determine the target host consistently
         target_host = self.load_balancer.get_next_server(client_identifier)
-        if self.port == 5001:
-            response = "Server Shut down"
-            client_socket.send(response.encode())
+        # if self.port == 5001:
+        #     response = "Server Shut down"
+        #     client_socket.send(response.encode())
     
             # Close the sockets
             # forward_socket.close()
-            client_socket.close()
-        else:
-            self.logger.info(f"Received command: {command}")
-            print("-------------------------------")
+        #     client_socket.close()
+        # else:
+        self.logger.info(f"Received command: {command}")
+        print("-------------------------------")
 
         if command == "data_preparation":
             file_paths = ["./files/airbnb_ratings_new.csv", "./files/airbnb_sample.csv",  "./files/LA_Listings.csv", "./files/NY_Listings.csv"]
